@@ -172,8 +172,13 @@ func (w *watcher) close() {
 	}
 	w.closing = true
 	w.wsclientsMu.Unlock()
-
-	w.cancel()
+	
+	select {
+	case <-w.ctx.Done():
+		// Context already cancelled, no need to cancel again
+	default:
+		w.cancel()
+	}
 	if w.fw != nil {
 		err := w.fw.Close()
 		w.setErr(err)
@@ -198,7 +203,6 @@ func (w *watcher) goFunc(fn func(context.Context) error) {
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-		defer w.cancel()
 
 		err := fn(w.ctx)
 		w.setErr(err)
